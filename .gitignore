@@ -3,3 +3,4 @@ dist/
 .env
 *.local
 __pycache__/
+!before/.env
