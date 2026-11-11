@@ -22,6 +22,9 @@ export const Route = createFileRoute("/auth")({
 
 type Mode = "signin" | "signup" | "magic" | "forgot";
 
+// Redirect target for auth emails (set while testing in preview)
+const APP_ORIGIN = "https://preview-storepulse.lovable.app";
+
 function AuthPage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("signin");
@@ -43,17 +46,17 @@ function AuthPage() {
       } else if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
           email, password,
-          options: { emailRedirectTo: `${origin}/dashboard`, data: { display_name: name } },
+          options: { emailRedirectTo: `${APP_ORIGIN}/dashboard`, data: { display_name: name } },
         });
         if (error) throw error;
         if (data.session) navigate({ to: "/dashboard" });
         else setSent("Check your inbox to confirm your email, then you'll land on your dashboard.");
       } else if (mode === "magic") {
-        const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${origin}/dashboard` } });
+        const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${APP_ORIGIN}/dashboard` } });
         if (error) throw error;
         setSent("We sent you a sign-in link. Open it on this device to land on your dashboard.");
       } else {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${origin}/reset-password` });
+        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${APP_ORIGIN}/reset-password` });
         if (error) throw error;
         setSent("Check your inbox for a link to set a new password.");
       }

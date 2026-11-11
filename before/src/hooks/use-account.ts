@@ -18,7 +18,7 @@ export function useAccount() {
         email: user.email ?? "",
         name: profile?.display_name ?? user.email ?? "",
         isAdmin: (roles ?? []).some((r) => r.role === "admin"),
-        isPro: Boolean(pro),
+        isPro: Boolean(pro) || localStorage.getItem("storepulse_pro_unlocked") === "true",
       };
     },
   });
