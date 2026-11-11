@@ -270,10 +270,14 @@ def check_auth_flows(target):
 def check_role_in_interface(target):
     """Fixed-list item 4: a role check done only in the UI."""
     findings = []
+    seen_lines = set()
     for path in code_files(target):
         text = read_text(path)
         for m in UI_ROLE_RE.finditer(text):
             line_no = text[:m.start()].count("\n") + 1
+            if (path, line_no) in seen_lines:
+                continue
+            seen_lines.add((path, line_no))
             findings.append(Finding(
                 "F4", "role checks done only in the interface", "HIGH",
                 f"{rel(target, path)}:{line_no}",
@@ -310,14 +314,21 @@ def check_keys(target):
                     "that claim bypasses every database rule. The value here is a "
                     "dummy; the placement is the defect.",
                 ))
+    seen_hist_tokens = set()
     for commit, gpath, line in git_history_scan(target, JWT_RE):
         payload = decode_jwt_payload(next((t for t in JWT_RE.findall(line)), "")) \
             if JWT_RE.search(line) else ""
-        if SERVICE_ROLE_RE.search(payload) or SERVICE_ROLE_RE.search(line):
+        if not JWT_RE.search(line):
+            continue
+        token_id = JWT_RE.search(line).group(0)[:60]
+        if token_id in seen_hist_tokens:
+            continue
+        if SERVICE_ROLE_RE.search(payload) or re.search(r"service[_-]?role", line, re.I):
+            seen_hist_tokens.add(token_id)
             findings.append(Finding(
                 "F5", "keys in the client bundle", "CRITICAL",
                 f"git history: {commit}:{gpath}",
-                line[:160],
+                line[:200],
                 "Run: git log -p --all | grep -c 'service_role'. Even though the "
                 "key was later removed from the working tree, it stays reachable "
                 "in history; the value here is a dummy, the history exposure is "
