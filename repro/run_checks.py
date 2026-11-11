@@ -127,7 +127,7 @@ def git_history_scan(root, pattern):
             elif line.startswith("+++ b/"):
                 current_file = line[6:]
             elif current_commit and pattern.search(line):
-                hits.append((current_commit, current_file or "?", line.strip()[:160]))
+                hits.append((current_commit, current_file or "?", line.strip()[:400]))
     except (OSError, subprocess.SubprocessError):
         pass
     return hits
@@ -230,13 +230,29 @@ def check_payment_trust(target):
     return findings
 
 
+CONST_DEF_RE = re.compile(
+    r"(?:const|let|var)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*[\"'`]([^\"'`]+)[\"'`]", re.I
+)
+
+
+def _resolve_redirect_value(url, text):
+    """Resolve one level of template-literal ${CONST} against file-local constants."""
+    def sub(match):
+        name = match.group(1)
+        for cm in CONST_DEF_RE.finditer(text):
+            if cm.group(1) == name and PREVIEW_HOST_RE.search(cm.group(2)):
+                return cm.group(2)
+        return match.group(0)
+    return re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", sub, url)
+
+
 def check_auth_flows(target):
     """Fixed-list item 3: reset and magic-link redirects pointing at a preview address."""
     findings = []
     for path in code_files(target):
         text = read_text(path)
         for m in REDIRECT_KEY_RE.finditer(text):
-            url = m.group(2)
+            url = _resolve_redirect_value(m.group(2), text)
             if PREVIEW_HOST_RE.search(url):
                 line_no = text[:m.start()].count("\n") + 1
                 findings.append(Finding(
